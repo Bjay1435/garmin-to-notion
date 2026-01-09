@@ -1,6 +1,7 @@
 from datetime import date, datetime
 from garminconnect import Garmin
 from notion_client import Client
+from dotenv import load_dotenv
 import os
 
 MILES_PER_METER = 0.000621371
@@ -11,6 +12,7 @@ def get_icon_for_record(activity_name):
         "1mi": "⚡",
         "5K": "👟",
         "10K": "⭐",
+        "Half Marathon": "🏆",
         "Longest Run": "🏃",
         "Longest Ride": "🚴",
         "Total Ascent": "🚵",
@@ -74,9 +76,9 @@ def format_garmin_value(value, activity_type, typeId):
         minutes = total_seconds // 60
         seconds = total_seconds % 60
         formatted_value = f"{minutes}:{seconds:02d}"
-        total_pseconds = total_seconds // 3.106856 # Divide by 5km in mi
-        pminutes = total_pseconds // 60
-        pseconds = total_pseconds % 60
+        seconds_per_mile = round(total_seconds // 3.106856) # Divide total seconds by distance
+        pminutes = seconds_per_mile // 60
+        pseconds = seconds_per_mile % 60
         formatted_pace = f"{pminutes}:{pseconds:02d} / mi"
         return formatted_value, formatted_pace
 
@@ -90,7 +92,41 @@ def format_garmin_value(value, activity_type, typeId):
             formatted_value = f"{hours}:{minutes:02d}:{seconds:02d}"
         else:
             formatted_value = f"{minutes}:{seconds:02d}"
-        total_pseconds = total_seconds // 6.213712  # Divide by 10km in mi
+        total_pseconds = round(total_seconds // 6.213712)  # Divide by 10km in mi
+        phours = total_pseconds // 3600
+        pminutes = (total_pseconds % 3600) // 60
+        pseconds = total_pseconds % 60
+        formatted_pace = f"{pminutes}:{pseconds:02d} / mi"
+        return formatted_value, formatted_pace
+    
+    if typeId == 4:  # 10K
+        # Round to the nearest second
+        total_seconds = round(value)
+        hours = total_seconds // 3600
+        minutes = (total_seconds % 3600) // 60
+        seconds = total_seconds % 60
+        if hours > 0:
+            formatted_value = f"{hours}:{minutes:02d}:{seconds:02d}"
+        else:
+            formatted_value = f"{minutes}:{seconds:02d}"
+        total_pseconds = round(total_seconds // 6.213712)  # Divide by 10km in mi
+        phours = total_pseconds // 3600
+        pminutes = (total_pseconds % 3600) // 60
+        pseconds = total_pseconds % 60
+        formatted_pace = f"{pminutes}:{pseconds:02d} / mi"
+        return formatted_value, formatted_pace
+    
+    if typeId == 5:  # 13.1 mi
+        # Round to the nearest second
+        total_seconds = round(value)
+        hours = total_seconds // 3600
+        minutes = (total_seconds % 3600) // 60
+        seconds = total_seconds % 60
+        if hours > 0:
+            formatted_value = f"{hours}:{minutes:02d}:{seconds:02d}"
+        else:
+            formatted_value = f"{minutes}:{seconds:02d}"
+        total_pseconds = round(total_seconds // 13.1)  # Divide by 10km in mi
         phours = total_pseconds // 3600
         pminutes = (total_pseconds % 3600) // 60
         pseconds = total_pseconds % 60
@@ -147,6 +183,7 @@ def replace_activity_name_by_typeId(typeId):
         2: "1mi",
         3: "5K",
         4: "10K",
+        5: "Half Marathon",
         7: "Longest Run",
         8: "Longest Ride",
         9: "Total Ascent",
@@ -237,6 +274,8 @@ def write_new_record(client, database_id, activity_date, activity_type, activity
         print(f"Error writing new record: {e}")
 
 def main():
+    load_dotenv()
+
     garmin_email = os.getenv("GARMIN_EMAIL")
     garmin_password = os.getenv("GARMIN_PASSWORD")
     notion_token = os.getenv("NOTION_TOKEN")
@@ -262,7 +301,7 @@ def main():
 
         if existing_date_record:
             update_record(client, existing_date_record['id'], activity_date, value, pace, activity_name, True)
-            print(f"Updated existing record: {activity_type} - {activity_name}")
+            print(f"Updated existing record: {activity_type} - {activity_name} - {typeId}")
         elif existing_pr_record:
             # Add error handling here
             try:
